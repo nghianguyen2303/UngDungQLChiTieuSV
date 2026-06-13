@@ -9,6 +9,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { giaoDichAPI, nganSachAPI } from '../../src/api/axiosClient';
 import Colors from '../../src/theme/colors';
+import { thongBaoAPI } from '../../src/api/axiosClient';
 
 type GiaoDich = {
   maGiaoDich: number;
@@ -45,6 +46,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [canhBao, setCanhBao] = useState<any[]>([]);
+  const [soChuaDoc, setSoChuaDoc] = useState(0);
 
   const now = new Date();
   const thang = now.getMonth() + 1;
@@ -69,6 +71,12 @@ export default function HomeScreen() {
         else tongChi += tx.soTien;
       });
       setThongKe({ tongThu, tongChi, soDu: tongThu - tongChi });
+
+      // Load số thông báo chưa đọc
+      try {
+        const countRes = await thongBaoAPI.count();
+        setSoChuaDoc(countRes.data.chuaDoc);
+      } catch { }
 
       // Load cảnh báo ngân sách
       try {
@@ -127,8 +135,13 @@ export default function HomeScreen() {
             <Text style={s.greeting}>{greet()}</Text>
             <Text style={s.userName}>{user?.hoTen || 'Sinh viên'}</Text>
           </View>
-          <TouchableOpacity style={s.notifBtn}>
+          <TouchableOpacity style={s.notifBtn} onPress={() => router.push('/notifications' as any)}>
             <Ionicons name="notifications-outline" size={22} color="#fff" />
+            {soChuaDoc > 0 && (
+              <View style={s.badge}>
+                <Text style={s.badgeText}>{soChuaDoc > 9 ? '9+' : soChuaDoc}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
         <View style={s.balanceCard}>
@@ -280,4 +293,6 @@ const s = StyleSheet.create({
   emptyWrap: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
   emptyText: { fontSize: 15, fontWeight: '600', color: Colors.textMedium, marginTop: 12 },
   emptySubtext: { fontSize: 13, color: Colors.textMuted, marginTop: 4 },
+  badge: { position: 'absolute', top: -4, right: -4, backgroundColor: Colors.expense, borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  badgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
 });

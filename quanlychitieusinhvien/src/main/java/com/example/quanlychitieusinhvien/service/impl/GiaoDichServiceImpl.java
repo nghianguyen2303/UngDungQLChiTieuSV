@@ -12,8 +12,10 @@ import com.example.quanlychitieusinhvien.repository.GiaoDichRepository;
 import com.example.quanlychitieusinhvien.repository.NguoiDungRepository;
 import com.example.quanlychitieusinhvien.repository.ViRepository;
 import com.example.quanlychitieusinhvien.service.GiaoDichService;
+import com.example.quanlychitieusinhvien.service.ThongBaoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,6 +37,9 @@ public class GiaoDichServiceImpl implements GiaoDichService {
 
     @Autowired
     private ViRepository viRepo;
+
+    @Autowired
+    private ThongBaoService thongBaoService;
 
     private NguoiDung getUserByEmail(String email) {
         return nguoiDungRepo.findByEmail(email)
@@ -138,6 +143,7 @@ public class GiaoDichServiceImpl implements GiaoDichService {
 
     // === Thêm giao dịch ===
     @Override
+    @Transactional
     public GiaoDichResponse create(String email, GiaoDichRequest request) {
         NguoiDung user = getUserByEmail(email);
 
@@ -149,12 +155,6 @@ public class GiaoDichServiceImpl implements GiaoDichService {
         gd.setTrangThai("ACTIVE");
         gd.setNguoiDung(user);
 
-        if (request.getMaVi() != null) {
-            Vi vi = viRepo.findById(request.getMaVi())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ví"));
-            gd.setVi(vi);
-        }
-
         // Gắn danh mục nếu có
         if (request.getMaDanhMuc() != null) {
             DanhMuc dm = danhMucRepo.findById(request.getMaDanhMuc())
@@ -162,12 +162,43 @@ public class GiaoDichServiceImpl implements GiaoDichService {
             gd.setDanhMuc(dm);
         }
 
+        // Gắn ví + cập nhật số dư ví
+        if (request.getMaVi() != null) {
+            Vi vi = viRepo.findById(request.getMaVi())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ví"));
+            gd.setVi(vi);
+
+            BigDecimal soDu = vi.getSoDu() != null ? vi.getSoDu() : BigDecimal.ZERO;
+
+            if ("CHI".equals(gd.getLoaiGiaoDich())) {
+                // Chi tiêu → trừ tiền ví
+                if (soDu.compareTo(request.getSoTien()) < 0) {
+                    throw new RuntimeException("Số dư ví '" + vi.getTenVi() + "' không đủ. Hiện có: " + soDu.toPlainString() + "đ");
+                }
+                vi.setSoDu(soDu.subtract(request.getSoTien()));
+            } else {
+                // Thu nhập → cộng tiền ví
+                vi.setSoDu(soDu.add(request.getSoTien()));
+            }
+            viRepo.save(vi);
+        }
+        // Không chọn ví → chỉ ghi nhận giao dịch, không ảnh hưởng ví nào
+
         giaoDichRepo.save(gd);
+
+        // Kiểm tra ngân sách
+        if ("CHI".equals(gd.getLoaiGiaoDich())) {
+            try {
+                thongBaoService.kiemTraNganSach(email);
+            } catch (Exception e) {}
+        }
+
         return mapToResponse(gd);
     }
 
     // === Sửa giao dịch ===
     @Override
+    @Transactional
     public GiaoDichResponse update(String email, Integer maGiaoDich, GiaoDichRequest request) {
         NguoiDung user = getUserByEmail(email);
 
@@ -175,19 +206,27 @@ public class GiaoDichServiceImpl implements GiaoDichService {
                         maGiaoDich, user.getMaNguoiDung())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch"));
 
+        // Hoàn tiền ví cũ (nếu có)
+        if (gd.getVi() != null) {
+            Vi viCu = gd.getVi();
+            BigDecimal soDuCu = viCu.getSoDu() != null ? viCu.getSoDu() : BigDecimal.ZERO;
+
+            if ("CHI".equals(gd.getLoaiGiaoDich())) {
+                // Giao dịch chi cũ → cộng lại tiền
+                viCu.setSoDu(soDuCu.add(gd.getSoTien()));
+            } else {
+                // Giao dịch thu cũ → trừ lại tiền
+                viCu.setSoDu(soDuCu.subtract(gd.getSoTien()));
+            }
+            viRepo.save(viCu);
+        }
+
+        // Cập nhật thông tin giao dịch
         gd.setSoTien(request.getSoTien());
         gd.setLoaiGiaoDich(request.getLoaiGiaoDich().toUpperCase());
         gd.setNgayGiaoDich(parseDate(request.getNgayGiaoDich()));
         gd.setGhiChu(request.getGhiChu());
 
-        // Cập nhật ví
-        if (request.getMaVi() != null) {
-            Vi vi = viRepo.findById(request.getMaVi())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ví"));
-            gd.setVi(vi);
-        } else {
-            gd.setVi(null);
-        }
         // Cập nhật danh mục
         if (request.getMaDanhMuc() != null) {
             DanhMuc dm = danhMucRepo.findById(request.getMaDanhMuc())
@@ -195,6 +234,27 @@ public class GiaoDichServiceImpl implements GiaoDichService {
             gd.setDanhMuc(dm);
         } else {
             gd.setDanhMuc(null);
+        }
+
+        // Cập nhật ví mới + trừ/cộng tiền
+        if (request.getMaVi() != null) {
+            Vi viMoi = viRepo.findById(request.getMaVi())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy ví"));
+            gd.setVi(viMoi);
+
+            BigDecimal soDuMoi = viMoi.getSoDu() != null ? viMoi.getSoDu() : BigDecimal.ZERO;
+
+            if ("CHI".equals(gd.getLoaiGiaoDich())) {
+                if (soDuMoi.compareTo(request.getSoTien()) < 0) {
+                    throw new RuntimeException("Số dư ví '" + viMoi.getTenVi() + "' không đủ");
+                }
+                viMoi.setSoDu(soDuMoi.subtract(request.getSoTien()));
+            } else {
+                viMoi.setSoDu(soDuMoi.add(request.getSoTien()));
+            }
+            viRepo.save(viMoi);
+        } else {
+            gd.setVi(null);
         }
 
         giaoDichRepo.save(gd);

@@ -65,6 +65,9 @@ public class NguoiDungServiceImpl implements NguoiDungService {
         res.setEmail(user.getEmail());
         res.setSoDienThoai(user.getSoDienThoai());
         res.setTrangThai(user.getTrangThai());
+        if (user.getNgayTao() != null) {
+            res.setNgayTao(user.getNgayTao().toString());
+        }
         return res;
     }
 }

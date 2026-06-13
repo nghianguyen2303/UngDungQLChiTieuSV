@@ -1,7 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE = 'http://192.168.1.4:8080/api';
+const API_BASE = 'http://192.168.0.177:8080/api';
 
 const axiosClient = axios.create({
     baseURL: API_BASE,
@@ -33,16 +33,44 @@ axiosClient.interceptors.response.use(
     }
 );
 
-// Khớp với AuthController: /api/auth/login, /api/auth/register
+//AuthController: /api/auth/login, /api/auth/register
 export const authAPI = {
+
     login: (email: string, matKhau: string) =>
-        axiosClient.post('/auth/login', { email, matKhau }),
+        axiosClient.post('/auth/login', {
+            email,
+            matKhau,
+        }),
 
     register: (data: any) =>
         axiosClient.post('/auth/register', data),
+
+    verifyLoginOtp: (
+        email: string,
+        otp: string
+    ) =>
+        axiosClient.post(
+            '/auth/verify-login-otp',
+            {
+                email,
+                otp,
+            }
+        ),
+
+    verifyRegisterOtp: (
+        email: string,
+        otp: string
+    ) =>
+        axiosClient.post(
+            '/auth/verify-register-otp',
+            {
+                email,
+                otp,
+            }
+        ),
 };
 
-// Khớp với NguoiDungController: /api/user/profile, /api/user/change-password
+//NguoiDungController: /api/user/profile, /api/user/change-password
 export const userAPI = {
     getProfile: () =>
         axiosClient.get('/user/profile'),
@@ -152,6 +180,57 @@ export const nganSachAPI = {
 
     canhBao: (thang: number, nam: number) =>
         axiosClient.get('/ngan-sach/canh-bao', { params: { thang, nam } }),
+};
+
+// --- VÍ API ---
+export const viAPI = {
+    getAll: () =>
+        axiosClient.get('/vi'),
+
+    getById: (id: number) =>
+        axiosClient.get(`/vi/${id}`),
+
+    create: (data: { tenVi: string; loaiVi: string; soDu: number; moTa?: string }) =>
+        axiosClient.post('/vi', data),
+
+    update: (id: number, data: { tenVi: string; loaiVi: string; soDu: number; moTa?: string }) =>
+        axiosClient.put(`/vi/${id}`, data),
+
+    delete: (id: number) =>
+        axiosClient.delete(`/vi/${id}`),
+
+    chuyenTien: (data: { maViNguon: number; maViDich: number; soTien: number; ghiChu?: string }) =>
+        axiosClient.post('/vi/chuyen-tien', data),
+
+    tongSoDu: () =>
+        axiosClient.get('/vi/tong-so-du'),
+};
+
+// --- THÔNG BÁO API ---
+export const thongBaoAPI = {
+    getAll: () =>
+        axiosClient.get('/thong-bao'),
+
+    getChuaDoc: () =>
+        axiosClient.get('/thong-bao/chua-doc'),
+
+    count: () =>
+        axiosClient.get('/thong-bao/count'),
+
+    markAsRead: (id: number) =>
+        axiosClient.put(`/thong-bao/${id}/doc`),
+
+    markAllAsRead: () =>
+        axiosClient.put('/thong-bao/doc-tat-ca'),
+
+    delete: (id: number) =>
+        axiosClient.delete(`/thong-bao/${id}`),
+
+    deleteAllRead: () =>
+        axiosClient.delete('/thong-bao/da-doc'),
+
+    kiemTraNganSach: () =>
+        axiosClient.post('/thong-bao/kiem-tra-ngan-sach'),
 };
 
 export default axiosClient;

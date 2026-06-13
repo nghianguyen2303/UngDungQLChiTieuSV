@@ -52,9 +52,12 @@ export default function RegisterScreen() {
                 matKhau: form.matKhau,
                 soDienThoai: form.soDienThoai.trim(),
             });
-            Alert.alert('Thành công', 'Đăng ký thành công! Hãy đăng nhập.', [
-                { text: 'Đăng nhập', onPress: () => router.back() },
-            ]);
+            router.push({
+                pathname: '/otp-register',
+                params: {
+                    email: form.email.trim(),
+                },
+            } as any);
         } catch (err: any) {
             Alert.alert('Đăng ký thất bại', err.message || 'Có lỗi xảy ra');
         }

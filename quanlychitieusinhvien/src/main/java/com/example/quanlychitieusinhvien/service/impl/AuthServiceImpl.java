@@ -6,6 +6,7 @@ import com.example.quanlychitieusinhvien.repository.NguoiDungRepository;
 import com.example.quanlychitieusinhvien.security.JwtUtil;
 import com.example.quanlychitieusinhvien.service.AuthService;
 import com.example.quanlychitieusinhvien.service.DanhMucService;
+import com.example.quanlychitieusinhvien.service.OtpService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,54 +30,132 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private ViService viService;
 
-    // 🔥 ĐĂNG KÝ
+    @Autowired
+    private OtpService otpService;
+
     @Override
     public String register(RegisterRequest request) {
 
-        // check email tồn tại
         if (repo.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("Email đã tồn tại");
         }
 
-        // tạo user
-        NguoiDung user = new NguoiDung();
-        user.setHoTen(request.getHoTen());
-        user.setEmail(request.getEmail());
-        user.setMatKhau(passwordEncoder.encode(request.getMatKhau()));
-        user.setSoDienThoai(request.getSoDienThoai());
-        user.setTrangThai("ACTIVE");
+        otpService.savePendingRegister(
+                request.getEmail(),
+                request
+        );
 
-        repo.save(user);
+        otpService.generateAndSendOtp(
+                request.getEmail()
+        );
 
-        danhMucService.createDefaultCategories(user.getMaNguoiDung());
-
-        viService.createDefaultWallets(user.getMaNguoiDung());
-
-        return "Đăng ký thành công";
+        return "OTP đăng ký đã gửi";
     }
 
     // 🔥 ĐĂNG NHẬP
     @Override
-    public AuthResponse login(LoginRequest request) {
+    public String login(LoginRequest request) {
 
-        // tìm user
         NguoiDung user = repo.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Email không tồn tại"));
+                .orElseThrow(() ->
+                        new RuntimeException("Email không tồn tại"));
 
-        // check password
-        if (!passwordEncoder.matches(request.getMatKhau(), user.getMatKhau())) {
+        if (!passwordEncoder.matches(
+                request.getMatKhau(),
+                user.getMatKhau()
+        )) {
+
             throw new RuntimeException("Sai mật khẩu");
         }
 
-        // tạo token
-        String token = jwtUtil.generateToken(user.getEmail());
+        otpService.generateAndSendOtp(
+                request.getEmail()
+        );
 
-        // trả về
-        AuthResponse res = new AuthResponse();
-        res.setToken(token);
-        res.setEmail(user.getEmail());
-        res.setHoTen(user.getHoTen());
+        return "OTP đăng nhập đã gửi";
+    }
 
-        return res;
+    @Override
+    public String verifyRegisterOtp(
+            VerifyOtpRequest request
+    ) {
+
+        boolean valid = otpService.verifyOtp(
+                request.getEmail(),
+                request.getOtp()
+        );
+
+        if(!valid) {
+            throw new RuntimeException("OTP không đúng");
+        }
+
+        RegisterRequest pending =
+                otpService.getPendingRegister(
+                        request.getEmail()
+                );
+
+        if(pending == null) {
+            throw new RuntimeException("Không tìm thấy đăng ký");
+        }
+
+        NguoiDung user = new NguoiDung();
+
+        user.setHoTen(pending.getHoTen());
+
+        user.setEmail(pending.getEmail());
+
+        user.setMatKhau(
+                passwordEncoder.encode(
+                        pending.getMatKhau()
+                )
+        );
+
+        user.setSoDienThoai(
+                pending.getSoDienThoai()
+        );
+
+        user.setTrangThai("ACTIVE");
+
+        repo.save(user);
+
+        danhMucService.createDefaultCategories(
+                user.getMaNguoiDung()
+        );
+
+        otpService.removePendingRegister(
+                request.getEmail()
+        );
+
+        return "Đăng ký thành công";
+    }
+
+    @Override
+    public AuthResponse verifyLoginOtp(
+            VerifyOtpRequest request
+    ) {
+
+        boolean valid = otpService.verifyOtp(
+                request.getEmail(),
+                request.getOtp()
+        );
+
+        if(!valid) {
+            throw new RuntimeException("OTP không đúng");
+        }
+
+        NguoiDung user = repo.findByEmail(
+                request.getEmail()
+        ).orElseThrow();
+
+        String token =
+                jwtUtil.generateToken(
+                        user.getEmail()
+                );
+
+        return new AuthResponse(
+                token,
+                user.getEmail(),
+                user.getHoTen()
+        );
     }
 }

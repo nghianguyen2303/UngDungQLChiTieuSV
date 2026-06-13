@@ -20,9 +20,10 @@ public class AuthController {
         return service.register(request);
     }
 
-    // 🔥 ĐĂNG NHẬP
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+    public String login(
+            @Valid @RequestBody LoginRequest request
+    ) {
         return service.login(request);
     }
 
@@ -30,5 +31,19 @@ public class AuthController {
     @PostMapping("/logout")
     public String logout() {
         return "Đăng xuất thành công";
+    }
+
+    @PostMapping("/verify-register-otp")
+    public String verifyRegisterOtp(
+            @RequestBody VerifyOtpRequest request
+    ) {
+        return service.verifyRegisterOtp(request);
+    }
+
+    @PostMapping("/verify-login-otp")
+    public AuthResponse verifyLoginOtp(
+            @RequestBody VerifyOtpRequest request
+    ) {
+        return service.verifyLoginOtp(request);
     }
 }

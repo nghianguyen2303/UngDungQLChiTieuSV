@@ -6,6 +6,10 @@ public interface AuthService {
 
     String register(RegisterRequest request);
 
-    AuthResponse login(LoginRequest request);
+    String verifyRegisterOtp(VerifyOtpRequest request);
+
+    AuthResponse verifyLoginOtp(VerifyOtpRequest request);
+
+    String login(LoginRequest request);
 
 }

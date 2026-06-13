@@ -14,7 +14,10 @@ function RootLayoutNav() {
 
     const firstSegment = segments[0] as string;
     const inAuthGroup =
-      firstSegment === 'login' || firstSegment === 'register';
+      firstSegment === 'login' ||
+      firstSegment === 'register' ||
+      firstSegment === 'otp-register' ||
+      firstSegment === 'otp-login';
 
     if (!token && !inAuthGroup) {
       router.replace('/login' as any);
@@ -42,6 +45,8 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
+      <Stack.Screen name="otp-register" />
+      <Stack.Screen name="otp-login" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="change-password" />
@@ -53,6 +58,11 @@ function RootLayoutNav() {
       <Stack.Screen name="budgets" />
       <Stack.Screen name="add-budget" />
       <Stack.Screen name="edit-budget" />
+      <Stack.Screen name="wallets" />
+      <Stack.Screen name="add-wallet" />
+      <Stack.Screen name="edit-wallet" />
+      <Stack.Screen name="transfer" />
+      <Stack.Screen name="notifications" />
     </Stack>
   );
 }

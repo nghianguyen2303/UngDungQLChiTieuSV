@@ -9,4 +9,5 @@ public class UserResponse {
     private String email;
     private String soDienThoai;
     private String trangThai;
+    private String ngayTao;  // thêm dòng này
 }

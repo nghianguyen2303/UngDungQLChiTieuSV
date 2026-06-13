@@ -32,7 +32,17 @@ export default function LoginScreen() {
         }
         setLoading(true);
         try {
-            await login(email.trim(), matKhau);
+            await login(
+                email.trim(),
+                matKhau
+            );
+
+            router.push({
+                pathname: '/otp-login',
+                params: {
+                    email: email.trim(),
+                },
+            } as any);
         } catch (err: any) {
             Alert.alert(
                 'Đăng nhập thất bại',
